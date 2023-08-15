@@ -1,17 +1,24 @@
 import numpy as np
 from functools import reduce
 from sklearn.naive_bayes import GaussianNB
-from confusion_matrix import ConfusionMatrix
+from utils.confusion_matrix import ConfusionMatrix
+from sklearn.metrics import ConfusionMatrixDisplay
+import matplotlib.pyplot as plt
 
 class KFoldCrossValidation:
     """
     Implementação da k-fold cross-validation
     """
-    def __init__(self, X: np.array, y: np.array, k: int, model):
+    def __init__(self, X: np.array, y: np.array, k: int, model, labels: np.array):
         self.X = X
         self.y = y
         self.k = k
+        self.accuracies = np.zeros(k)
+        self.precisions = np.zeros(k)
+        self.recalls = np.zeros(k)
+        self.f1_scores = np.zeros(k)
         self.model = model
+        self.labels = labels
         self.confusion_matrices = []
         self.avgAccuracy = 0
         self.stdAccuracy = 0
@@ -21,6 +28,7 @@ class KFoldCrossValidation:
         self.stdRecall = 0
         self.avgF1 = 0
         self.stdF1 = 0
+        self.summed_confusion_matrix = np.zeros([2,2])
         self.compute_cross_validation()
 
     def merge_lists(self, list_of_lists):
@@ -31,14 +39,14 @@ class KFoldCrossValidation:
         where0 = np.where(self.y == 0)[0]
         where1 = np.where(self.y == 1)[0]
         
-        folds0 = np.array_split(where0, k)
-        folds1 = np.array_split(where1, k)
+        folds0 = np.array_split(where0, self.k)
+        folds1 = np.array_split(where1, self.k)
 
         #just to initialize the arrays
-        X_folds = np.array_split(self.X, k)
-        y_folds = np.array_split(self.y, k)
+        X_folds = np.array_split(self.X, self.k)
+        y_folds = np.array_split(self.y, self.k)
         
-        for i in range(k):
+        for i in range(self.k):
             indexesList = merge_lists([folds0[i], folds1[i]])
             y_folds[i] = np.array(self.y[indexesList])
             X_folds[i] = np.array(self.X[indexesList])
@@ -47,13 +55,8 @@ class KFoldCrossValidation:
 
     def compute_cross_validation(self):
         X_folds, y_folds = self.divide_into_folds()
-        
-        accuracies = np.zeros(k)
-        precisions = np.zeros(k)
-        recalls = np.zeros(k)
-        f1_scores = np.zeros(k)
 
-        for i in range(k):
+        for i in range(self.k):
             X_test = X_folds[i]
             y_test = y_folds[i]
 
@@ -68,22 +71,40 @@ class KFoldCrossValidation:
             self.model.fit(X_train, y_train)
             y_pred = self.model.predict(X_test)
 
-            confusion_matrix = ConfusionMatrix(y_test, y_pred, labels=[0, 1])
+            confusion_matrix = ConfusionMatrix(y_test, y_pred, self.labels)
             
             self.confusion_matrices.append(confusion_matrix)
-            accuracies[i] = confusion_matrix.get_accuracy()
-            precisions[i] = confusion_matrix.get_precision()
-            recalls[i] = confusion_matrix.get_recall()
-            f1_scores[i] = confusion_matrix.get_f1_score()
+            self.accuracies[i] = confusion_matrix.get_accuracy()
+            self.precisions[i] = confusion_matrix.get_precision()
+            self.recalls[i] = confusion_matrix.get_recall()
+            self.f1_scores[i] = confusion_matrix.get_f1_score()
 
-        self.avgAccuracy = np.average(accuracies)
-        self.stdAccuracy = np.std(accuracies)
-        self.avgPrecision = np.average(precisions)
-        self.stdPrecision = np.std(precisions)
-        self.avgRecall = np.average(recalls)
-        self.stdRecall = np.std(recalls)
-        self.avgF1 = np.average(f1_scores)
-        self.stdF1 = np.std(f1_scores)
+        self.avgAccuracy = np.average(self.accuracies)
+        self.stdAccuracy = np.std(self.accuracies)
+        self.avgPrecision = np.average(self.precisions)
+        self.stdPrecision = np.std(self.precisions)
+        self.avgRecall = np.average(self.recalls)
+        self.stdRecall = np.std(self.recalls)
+        self.avgF1 = np.average(self.f1_scores)
+        self.stdF1 = np.std(self.f1_scores)
+
+        for matrix in self.confusion_matrices:
+            self.summed_confusion_matrix[0][0] += matrix.confusion_matrix[0][0]
+            self.summed_confusion_matrix[0][1] += matrix.confusion_matrix[0][1]
+            self.summed_confusion_matrix[1][0] += matrix.confusion_matrix[1][0]
+            self.summed_confusion_matrix[1][1] += matrix.confusion_matrix[1][1]
+
+    def show_summed_matrix(self):
+        fig, ax = plt.subplots(figsize=(7.5, 7.5))
+        ax.matshow(self.summed_confusion_matrix, cmap=plt.cm.Blues, alpha=0.3)
+        for i in range(self.summed_confusion_matrix.shape[0]):
+            for j in range(self.summed_confusion_matrix.shape[1]):
+                ax.text(x=j, y=i,s=self.summed_confusion_matrix[i, j], va='center', ha='center', size='xx-large')
+        
+        plt.xlabel('Predictions', fontsize=18)
+        plt.ylabel('Actuals', fontsize=18)
+        plt.title('Confusion Matrix', fontsize=18)
+        plt.show()
 
 
 def merge_lists(list_of_lists):
@@ -114,7 +135,7 @@ if __name__ == "__main__":
 
     y = np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 
-    k = 10
+    k = 3
 
     gnb = GaussianNB()
 
