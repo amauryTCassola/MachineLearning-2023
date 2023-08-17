@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.metrics import ConfusionMatrixDisplay, precision_score, recall_score, f1_score, accuracy_score
+from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
 
 class ConfusionMatrix:
     """
@@ -48,11 +48,6 @@ class ConfusionMatrix:
         recall = self.get_recall()
         return 2 * (precision * recall) / (precision + recall)
 
-    def show(self):
-        disp = ConfusionMatrixDisplay(confusion_matrix=self.confusion_matrix,
-                                      display_labels=self.labels)
-        disp.plot()
-        plt.show()
 
     def __str__(self):
         return f"Confusion Matrix: \n{self.confusion_matrix}\n" \
